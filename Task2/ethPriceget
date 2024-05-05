@@ -1,0 +1,32 @@
+const axios = require('axios');
+const mongoose = require('mongoose');
+const cron = require('node-cron');
+require('dotenv').config();
+
+const MONGODB_URI = process.env.DATABASE_URL;
+
+mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+const db = mongoose.connection;
+
+const priceSchema = new mongoose.Schema({
+  ethereumPriceInr: Number,
+  timestamp: { type: Date, default: Date.now }
+});
+const Price = mongoose.model('Price', priceSchema);
+
+async function fetchAndStoreEthereumPrice() {
+  try {
+    const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=inr');
+    const ethereumPriceInr = response.data.ethereum.inr;
+    const newPrice = new Price({ ethereumPriceInr });
+    await newPrice.save();
+    console.log(`Ethereum price fetched and stored: ${ethereumPriceInr}`);
+  } catch (error) {
+    console.error('Error fetching Ethereum price:', error.message);
+  }
+}
+cron.schedule('*/10 * * * *', () => {
+  fetchAndStoreEthereumPrice();
+});
+console.log('Price fetching script started.');
+process.stdin.resume();
